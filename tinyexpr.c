@@ -557,7 +557,7 @@ static te_expr *factor(state *s) {
     te_expr *insertion = 0;
 
     while (s->type == TOK_INFIX && (s->function == pow)) {
-        te_fun2 t = s->function;
+        te_fun2 t = (te_fun2)s->function;
         next_token(s);
 
         if (insertion) {
@@ -601,7 +601,7 @@ static te_expr *factor(state *s) {
     CHECK_NULL(ret);
 
     while (s->type == TOK_INFIX && (s->function == pow)) {
-        te_fun2 t = s->function;
+        te_fun2 t = (te_fun2)s->function;
         next_token(s);
         te_expr *p = power(s);
         CHECK_NULL(p, te_free(ret));
@@ -625,7 +625,7 @@ static te_expr *term(state *s) {
     CHECK_NULL(ret);
 
     while (s->type == TOK_INFIX && (s->function == mul || s->function == divide || s->function == fmod)) {
-        te_fun2 t = s->function;
+        te_fun2 t = (te_fun2)s->function;
         next_token(s);
         te_expr *f = factor(s);
         CHECK_NULL(f, te_free(ret));
@@ -647,7 +647,7 @@ static te_expr *sum_expr(state *s) {
     CHECK_NULL(ret);
 
     while (s->type == TOK_INFIX && (s->function == add || s->function == sub)) {
-        te_fun2 t = s->function;
+        te_fun2 t = (te_fun2)s->function;
         next_token(s);
         te_expr *te = term(s);
         CHECK_NULL(te, te_free(ret));
@@ -670,7 +670,7 @@ static te_expr *rel_expr(state *s) {
 
     while (s->type == TOK_INFIX && (s->function == greater || s->function == greater_eq ||
         s->function == lower || s->function == lower_eq)) {
-        te_fun2 t = s->function;
+        te_fun2 t = (te_fun2)s->function;
         next_token(s);
         te_expr *e = sum_expr(s);
         CHECK_NULL(e, te_free(ret));
@@ -692,7 +692,7 @@ static te_expr *eq_expr(state *s) {
     CHECK_NULL(ret);
 
     while (s->type == TOK_INFIX && (s->function == equal || s->function == not_equal)) {
-        te_fun2 t = s->function;
+        te_fun2 t = (te_fun2)s->function;
         next_token(s);
         te_expr *e = rel_expr(s);
         CHECK_NULL(e, te_free(ret));
