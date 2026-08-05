@@ -263,6 +263,7 @@ letters, the digits *0* through *9*, and underscore. Constants can be integers
 or floating-point numbers, and can be in decimal, hexadecimal (e.g., *0x57CEF7*),
 or scientific notation (e.g., *1e3* for *1000*).
 A leading zero is not required (e.g., *.5* for *0.5*).
+The decimal separator is always *.*, regardless of the process locale.
 
 
 ## Functions supported

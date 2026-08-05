@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
+#include <locale.h>
 #include "minctest.h"
 
 
@@ -832,6 +834,110 @@ void test_depth() {
 }
 
 
+static unsigned long long number_rand_state = 1;
+
+static unsigned long number_rand(unsigned long modulus) {
+    number_rand_state = number_rand_state * 6364136223846793005ULL + 1442695040888963407ULL;
+    return (unsigned long)((number_rand_state >> 33) % modulus);
+}
+
+
+void test_number() {
+    /* Number parsing no longer uses strtod, so fuzz it against strtod.
+     * Must run in the C locale, where strtod is a trusted reference. */
+    int i;
+    for (i = 0; i < 5000; ++i) {
+        char expr[64];
+        char *p = expr;
+        int j;
+
+        if (number_rand(8) == 0) {
+            /* Hex constant. */
+            const int digits = 1 + number_rand(8);
+            p += sprintf(p, "0x");
+            for (j = 0; j < digits; ++j)
+                p += sprintf(p, "%c", "0123456789abcdefABCDEF"[number_rand(22)]);
+        } else {
+            const int int_digits = number_rand(11);
+            const int frac_digits = int_digits ? number_rand(11) : 1 + number_rand(10);
+
+            for (j = 0; j < int_digits; ++j)
+                p += sprintf(p, "%c", "0123456789"[number_rand(10)]);
+            if (frac_digits || number_rand(2)) {
+                p += sprintf(p, ".");
+                for (j = 0; j < frac_digits; ++j)
+                    p += sprintf(p, "%c", "0123456789"[number_rand(10)]);
+            }
+            if (number_rand(2)) {
+                p += sprintf(p, "%c", "eE"[number_rand(2)]);
+                if (number_rand(2)) p += sprintf(p, "%c", "+-"[number_rand(2)]);
+                p += sprintf(p, "%lu", number_rand(320));
+            }
+        }
+
+        {
+            const double expected = strtod(expr, 0);
+            int err;
+            const double got = te_interp(expr, &err);
+            /* The small absolute slack covers subnormals, where scaling by
+             * pow() legitimately differs from strtod by more than a ulp. */
+            const int ok = err == 0 && (got == expected ||
+                fabs(got - expected) <= 1e-14 * fabs(expected) + 1e-304);
+            lok(ok);
+            if (!ok) printf("FAILED: %s => %.17g, expected %.17g (err=%d)\n",
+                expr, got, expected, err);
+        }
+    }
+
+    /* Forms that stop being a number partway through must still parse the
+     * same way: "1e" is the number 1 times nothing (syntax error at "e"),
+     * "0x" is the number 0 then the unknown variable x. */
+    {
+        const char *partial[] = {"1e", "1e+", "0x", "."};
+        int j;
+        for (j = 0; j < (int)(sizeof(partial) / sizeof(*partial)); ++j) {
+            int err;
+            const double r = te_interp(partial[j], &err);
+            lok(r != r);
+            lok(err != 0);
+        }
+    }
+}
+
+
+void test_locale() {
+    /* Number parsing must not depend on LC_NUMERIC. */
+    const char *locales[] = {"de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8",
+        "fr_FR.utf8", "es_ES.UTF-8", "es_ES.utf8", "German_Germany.1252"};
+    const char *found = 0;
+    int i;
+
+    for (i = 0; i < (int)(sizeof(locales) / sizeof(*locales)); ++i) {
+        if (setlocale(LC_ALL, locales[i]) &&
+            localeconv()->decimal_point[0] == ',') {
+            found = locales[i];
+            break;
+        }
+    }
+
+    if (!found) {
+        setlocale(LC_ALL, "C");
+        printf("no comma-decimal locale installed, skipping\n");
+        return;
+    }
+
+    lfequal(te_interp("1.5", 0), 1.5);
+    lfequal(te_interp(".5", 0), 0.5);
+    lfequal(te_interp("2.25+3.5", 0), 5.75);
+    lfequal(te_interp("1e3", 0), 1000);
+    lfequal(te_interp("1.5e-1", 0), 0.15);
+    lfequal(te_interp("0x1F", 0), 31);
+    lfequal(te_interp("1,5", 0), 5); /* Comma is the list operator. */
+
+    setlocale(LC_ALL, "C");
+}
+
+
 int main(int argc, char *argv[])
 {
     lrun("Results", test_results);
@@ -847,6 +953,8 @@ int main(int argc, char *argv[])
     lrun("Combinatorics", test_combinatorics);
     lrun("Logic", test_logic);
     lrun("Depth", test_depth);
+    lrun("Number", test_number);
+    lrun("Locale", test_locale);
     lresults();
 
     return lfails != 0;

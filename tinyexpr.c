@@ -255,6 +255,78 @@ static double negate_logical_not(double a) {return -(a == 0.0);}
 static double negate_logical_notnot(double a) {return -(a != 0.0);}
 
 
+static double parse_number(state *s) {
+    /* Parses a decimal or hex constant manually, so that the result does
+       not depend on LC_NUMERIC. Sets s->type. */
+    const char *p = s->next;
+    double value = 0.0;
+
+    if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X') &&
+        isxdigit((unsigned char)p[2])) {
+        /* Hex constant, e.g. 0x57CEF7. */
+        p += 2;
+        while (isxdigit((unsigned char)p[0])) {
+            const char c = p[0];
+            const int d = isdigit((unsigned char)c) ? c - '0' :
+                          (c >= 'a' ? c - 'a' + 10 : c - 'A' + 10);
+            value = value * 16.0 + d;
+            p++;
+        }
+    } else {
+        int exponent = 0, digits = 0;
+
+        while (isdigit((unsigned char)p[0])) {
+            value = value * 10.0 + (p[0] - '0');
+            p++; digits++;
+        }
+
+        if (p[0] == '.') {
+            p++;
+            while (isdigit((unsigned char)p[0])) {
+                value = value * 10.0 + (p[0] - '0');
+                p++; digits++; exponent--;
+            }
+        }
+
+        if (digits == 0) {
+            /* A lone '.' is not a number. */
+            s->type = TOK_ERROR;
+            return 0.0;
+        }
+
+        if (p[0] == 'e' || p[0] == 'E') {
+            /* Only consume the exponent if digits follow it, so that
+               "1e" still parses as the number 1 then the variable e. */
+            const char *ep = p + 1;
+            int esign = 1, e = 0;
+
+            if (ep[0] == '+') {
+                ep++;
+            } else if (ep[0] == '-') {
+                esign = -1;
+                ep++;
+            }
+
+            if (isdigit((unsigned char)ep[0])) {
+                while (isdigit((unsigned char)ep[0])) {
+                    if (e < 100000000) e = e * 10 + (ep[0] - '0');
+                    ep++;
+                }
+                exponent += esign * e;
+                p = ep;
+            }
+        }
+
+        /* The zero check keeps a huge exponent from producing 0 * inf. */
+        if (exponent && value != 0.0) value *= pow(10.0, exponent);
+    }
+
+    s->type = TOK_NUMBER;
+    s->next = p;
+    return value;
+}
+
+
 static void next_token(state *s) {
     s->type = TOK_NULL;
 
@@ -267,8 +339,7 @@ static void next_token(state *s) {
 
         /* Try reading a number. */
         if ((s->next[0] >= '0' && s->next[0] <= '9') || s->next[0] == '.') {
-            s->value = strtod(s->next, (char**)&s->next);
-            s->type = TOK_NUMBER;
+            s->value = parse_number(s);
         } else {
             /* Look for a variable or builtin function call. */
             if (isalpha((unsigned char)s->next[0])) {
