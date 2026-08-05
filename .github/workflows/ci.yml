@@ -13,21 +13,21 @@ jobs:
       matrix:
         cc: [gcc, clang]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build and run smoke tests
         run: make CC=${{ matrix.cc }}
 
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build and run smoke tests
         run: make CC=clang
 
   windows-msvc:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build and run smoke tests
         shell: cmd
@@ -40,7 +40,7 @@ jobs:
   sanitizers:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build and run smoke tests with ASan/UBSan
         run: |
           gcc -Wall -Wshadow -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -o smoke_san smoke.c tinyexpr.c -lm
