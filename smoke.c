@@ -24,6 +24,8 @@
 
 #include "tinyexpr.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "minctest.h"
 
 
@@ -796,6 +798,40 @@ void test_logic() {
 }
 
 
+void test_depth() {
+    /* Expressions nested deeper than TE_MAX_DEPTH must fail cleanly
+     * instead of overflowing the stack. */
+    int depths[] = {100, 400, 1000, 5000};
+    int i;
+    for (i = 0; i < (int)(sizeof(depths) / sizeof(int)); ++i) {
+        const int depth = depths[i];
+        const int ok = depth < 500;
+        int j, err;
+
+        /* ((((...1...)))) */
+        char *expr = malloc(depth * 2 + 2);
+        memset(expr, '(', depth);
+        expr[depth] = '1';
+        memset(expr + depth + 1, ')', depth);
+        expr[depth * 2 + 1] = '\0';
+
+        double r = te_interp(expr, &err);
+        lok(ok ? (err == 0 && r == 1.0) : (err != 0 && r != r));
+        free(expr);
+
+        /* sin sin sin ... 1 */
+        expr = malloc(depth * 4 + 2);
+        for (j = 0; j < depth; ++j) memcpy(expr + j * 4, "sin ", 4);
+        expr[depth * 4] = '1';
+        expr[depth * 4 + 1] = '\0';
+
+        r = te_interp(expr, &err);
+        lok(ok ? (err == 0) : (err != 0 && r != r));
+        free(expr);
+    }
+}
+
+
 int main(int argc, char *argv[])
 {
     lrun("Results", test_results);
@@ -810,6 +846,7 @@ int main(int argc, char *argv[])
     lrun("Pow", test_pow);
     lrun("Combinatorics", test_combinatorics);
     lrun("Logic", test_logic);
+    lrun("Depth", test_depth);
     lresults();
 
     return lfails != 0;

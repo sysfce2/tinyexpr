@@ -318,6 +318,10 @@ That will match how many scripting languages do it (e.g. Python, Ruby).
 Also, if you'd like `log` to default to the natural log instead of `log10`,
 then you can define `TE_NAT_LOG`.
 
+TinyExpr limits expression nesting (parentheses and function application) to
+512 levels, so that deeply nested input fails with a parse error instead of
+overflowing the stack. Define `TE_MAX_DEPTH` to change the limit.
+
 ## Hints
 
 - All functions/types start with the letters *te*.

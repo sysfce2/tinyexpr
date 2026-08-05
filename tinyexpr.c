@@ -73,6 +73,7 @@ typedef struct state {
     const te_variable *lookup;
     int lookup_len;
     int applied_unary;
+    int depth;
 } state;
 
 
@@ -84,6 +85,10 @@ typedef struct state {
 #define ARITY(TYPE) ( ((TYPE) & (TE_FUNCTION0 | TE_CLOSURE0)) ? ((TYPE) & 0x00000007) : 0 )
 #define NEW_EXPR(type, ...) new_expr((type), (const te_expr*[]){__VA_ARGS__})
 #define CHECK_NULL(ptr, ...) if ((ptr) == NULL) { __VA_ARGS__; return NULL; }
+
+#ifndef TE_MAX_DEPTH
+#define TE_MAX_DEPTH 512
+#endif
 
 static te_expr *new_expr(const int type, const te_expr *parameters[]) {
     const int arity = ARITY(type);
@@ -369,7 +374,22 @@ static te_expr *list(state *s);
 static te_expr *expr(state *s);
 static te_expr *power(state *s);
 
+static te_expr *base_impl(state *s);
+
 static te_expr *base(state *s) {
+    /* Guard against stack overflow from deeply nested expressions. */
+    if (s->depth >= TE_MAX_DEPTH) {
+        s->type = TOK_ERROR;
+        return NULL;
+    }
+
+    s->depth++;
+    te_expr *ret = base_impl(s);
+    s->depth--;
+    return ret;
+}
+
+static te_expr *base_impl(state *s) {
     /* <base>      =    <constant> | <variable> | <function-0> {"(" ")"} | <function-1> <power> | <function-X> "(" <expr> {"," <expr>} ")" | "(" <list> ")" */
     te_expr *ret;
     int arity;
@@ -853,6 +873,7 @@ te_expr *te_compile(const char *expression, const te_variable *variables, int va
     s.start = s.next = expression;
     s.lookup = variables;
     s.lookup_len = var_count;
+    s.depth = 0;
 
     next_token(&s);
     te_expr *root = list(&s);
