@@ -10,7 +10,8 @@ math expressions. It's handy when you want to add the ability to evaluate
 math expressions at runtime without adding a bunch of cruft to your project.
 
 In addition to the standard math operators and precedence, TinyExpr also supports
-the standard C math functions and runtime binding of variables.
+comparison and logical operators, the standard C math functions, and runtime
+binding of variables.
 
 ## Features
 
@@ -18,6 +19,7 @@ the standard C math functions and runtime binding of variables.
 - Single source file and header file.
 - Simple and fast.
 - Implements standard operators precedence.
+- Supports comparison (==, !=, <, <=, >, >=) and logical (&&, ||, !) operators.
 - Exposes standard C math functions (sin, sqrt, ln, etc.).
 - Can add custom functions and variables easily.
 - Can bind variables at eval-time.
@@ -242,10 +244,12 @@ Here is some example performance numbers taken from the included
 TinyExpr parses the following grammar:
 
     <list>      =    <expr> {"," <expr>}
-    <expr>      =    <term> {("+" | "-") <term>}
+    <expr>      =    <test> {("&&" | "||") <test>}
+    <test>      =    <sum> {(">" | ">=" | "<" | "<=" | "==" | "!=") <sum>}
+    <sum>       =    <term> {("+" | "-") <term>}
     <term>      =    <factor> {("*" | "/" | "%") <factor>}
     <factor>    =    <power> {"^" <power>}
-    <power>     =    {("-" | "+")} <base>
+    <power>     =    {("-" | "+" | "!")} <base>
     <base>      =    <constant>
                    | <variable>
                    | <function-0> {"(" ")"}
@@ -268,6 +272,14 @@ TinyExpr supports addition (+), subtraction/negation (-), multiplication (\*),
 division (/), exponentiation (^) and modulus (%) with the normal operator
 precedence (the one exception being that exponentiation is evaluated
 left-to-right, but this can be changed - see below).
+
+The comparison operators (==, !=, <, <=, >, >=) and logical operators
+(&&, ||, !) are also supported, with C-style precedence: comparisons bind
+looser than arithmetic, and && and || bind loosest. They evaluate to 1 for
+true and 0 for false, and any non-zero operand is treated as true. Note
+that && and || do not short-circuit - both operands are always evaluated.
+Also note that comparisons chain left-to-right as in C, so *a < b < c*
+means *(a < b) < c*, not a range check.
 
 The following C math functions are also supported:
 
