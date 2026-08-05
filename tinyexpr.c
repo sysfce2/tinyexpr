@@ -502,12 +502,18 @@ static te_expr *power(state *s) {
     if (sign == 1) {
         if (logical == 0) {
             ret = base(s);
-        } else if (logical == -1) {
-            ret = NEW_EXPR(TE_FUNCTION1 | TE_FLAG_PURE, base(s));
-            ret->function = logical_not;
         } else {
-            ret = NEW_EXPR(TE_FUNCTION1 | TE_FLAG_PURE, base(s));
-            ret->function = logical_notnot;
+            te_expr *b = base(s);
+            CHECK_NULL(b);
+
+            ret = NEW_EXPR(TE_FUNCTION1 | TE_FLAG_PURE, b);
+            CHECK_NULL(ret, te_free(b));
+
+            if (logical == -1) {
+                ret->function = logical_not;
+            } else {
+                ret->function = logical_notnot;
+            }
         }
     } else {
         te_expr *b = base(s);
@@ -657,12 +663,19 @@ static te_expr *sum_expr(state *s) {
 static te_expr *test_expr(state *s) {
     /* <expr>      =    <sum_expr> {(">" | ">=" | "<" | "<=" | "==" | "!=") <sum_expr>} */
     te_expr *ret = sum_expr(s);
+    CHECK_NULL(ret);
 
     while (s->type == TOK_INFIX && (s->function == greater || s->function == greater_eq ||
         s->function == lower || s->function == lower_eq || s->function == equal || s->function == not_equal)) {
         te_fun2 t = s->function;
         next_token(s);
-        ret = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, ret, sum_expr(s));
+        te_expr *e = sum_expr(s);
+        CHECK_NULL(e, te_free(ret));
+
+        te_expr *prev = ret;
+        ret = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, ret, e);
+        CHECK_NULL(ret, te_free(e), te_free(prev));
+
         ret->function = t;
     }
 
@@ -673,11 +686,18 @@ static te_expr *test_expr(state *s) {
 static te_expr *expr(state *s) {
     /* <expr>      =    <test_expr> {("&&" | "||") <test_expr>} */
     te_expr *ret = test_expr(s);
+    CHECK_NULL(ret);
 
     while (s->type == TOK_INFIX && (s->function == logical_and || s->function == logical_or)) {
         te_fun2 t = s->function;
         next_token(s);
-        ret = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, ret, test_expr(s));
+        te_expr *e = test_expr(s);
+        CHECK_NULL(e, te_free(ret));
+
+        te_expr *prev = ret;
+        ret = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, ret, e);
+        CHECK_NULL(ret, te_free(e), te_free(prev));
+
         ret->function = t;
     }
 
