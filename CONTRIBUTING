@@ -3,8 +3,48 @@ to add new features. However, if we keep adding new features, it'll no longer
 be small or simple. In other words, each new feature corrodes away at the core
 strength of TinyExpr.
 
-If you want to add a new feature, and you expect me to merge it, please discuss
-it with me before you go to that work. Open an issue at
-https://github.com/codeplea/tinyexpr and let us know what you're proposing.
+For that reason, feature requests will generally be closed. This isn't a
+judgment on the idea. TinyExpr is essentially finished, and it is small enough
+that if you need it to do something else, you can fork it and make it do that.
 
-Bug fixes are always welcome and appreciated, of course.
+Bugs are a different matter. Bug reports and bug fixes are always welcome and
+appreciated.
+
+
+OPEN AN ISSUE FIRST
+
+Please open an issue before you start work on a pull request. Go to
+https://github.com/codeplea/tinyexpr and describe what you're proposing, and
+we'll discuss it there. A pull request that shows up with no prior discussion
+will usually be closed, however good the code is. I'd rather tell you no
+before you spend your evening on it than after.
+
+
+BUG REPORTS
+
+Every bug report must include a minimal but complete example that reproduces
+the problem. That means C code, like this:
+
+    #include "tinyexpr.h"
+    #include <stdio.h>
+
+    int main(void)
+    {
+        int err;
+        double r = te_interp("2+2", &err);
+        printf("result %f, error %d\n", r, err);
+        /* prints 5.000000, expected 4.000000 */
+        return 0;
+    }
+
+Minimal means you've cut everything that isn't needed to show the bug.
+Complete means I can compile and run it exactly as written, against an
+unmodified TinyExpr, with nothing left out. Say what you expected and what you
+got instead.
+
+Do not send fuzzer harnesses, sanitizer wrappers, binary crash files, driver
+scripts, or hex dumps of some input format only your tooling understands. I
+don't care about your fuzzer or how you found the bug. I only care about the
+bug itself. If reproducing your report means reconstructing your test setup
+first, it will be closed. Reducing a crash to plain C is the reporter's job,
+not mine.
