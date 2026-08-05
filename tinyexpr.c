@@ -72,6 +72,7 @@ typedef struct state {
 
     const te_variable *lookup;
     int lookup_len;
+    int applied_unary;
 } state;
 
 
@@ -534,6 +535,11 @@ static te_expr *power(state *s) {
         }
     }
 
+    /* Distinguishes "-1" from "(-1)" for factor(), which must only hoist
+       unary operators actually written to the left of a "^". Set last so
+       nested parsing inside base() can't clobber it. */
+    s->applied_unary = (sign != 1 || logical != 0);
+
     return ret;
 }
 
@@ -545,42 +551,40 @@ static te_expr *factor(state *s) {
 
     const void *left_function = NULL;
 
-    if (ret->type == (TE_FUNCTION1 | TE_FLAG_PURE) &&
-        (ret->function == negate || ret->function == logical_not || ret->function == logical_notnot ||
-        ret->function == negate_logical_not || ret->function == negate_logical_notnot)) {
+    if (s->applied_unary && ret->type == (TE_FUNCTION1 | TE_FLAG_PURE)) {
         left_function = ret->function;
         te_expr *se = ret->parameters[0];
         free(ret);
         ret = se;
     }
 
-    te_expr *insertion = 0;
+    /* Slot where the next exponent inserts, to make "^" go right-to-left.
+       A unary operator on an exponent applies to the whole chain after it,
+       so the slot moves inside the unary node. */
+    void **slot = NULL;
 
     while (s->type == TOK_INFIX && (s->function == pow)) {
         te_fun2 t = (te_fun2)s->function;
         next_token(s);
 
-        if (insertion) {
-            /* Make exponentiation go right-to-left. */
-            te_expr *p = power(s);
-            CHECK_NULL(p, te_free(ret));
+        te_expr *p = power(s);
+        CHECK_NULL(p, te_free(ret));
+        const int p_unary = s->applied_unary;
 
-            te_expr *insert = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, insertion->parameters[1], p);
+        if (slot) {
+            te_expr *insert = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, *slot, p);
             CHECK_NULL(insert, te_free(p), te_free(ret));
 
             insert->function = t;
-            insertion->parameters[1] = insert;
-            insertion = insert;
+            *slot = insert;
+            slot = p_unary ? &p->parameters[0] : &insert->parameters[1];
         } else {
-            te_expr *p = power(s);
-            CHECK_NULL(p, te_free(ret));
-
             te_expr *prev = ret;
             ret = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, ret, p);
             CHECK_NULL(ret, te_free(p), te_free(prev));
 
             ret->function = t;
-            insertion = ret;
+            slot = p_unary ? &p->parameters[0] : &ret->parameters[1];
         }
     }
 
