@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run smoke tests
+        run: make CC=${{ matrix.cc }}
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run smoke tests
+        run: make CC=clang
+
+  windows-msvc:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build and run smoke tests
+        shell: cmd
+        run: |
+          cl /W3 /O2 /Fe:smoke.exe smoke.c tinyexpr.c || exit /b 1
+          smoke.exe || exit /b 1
+          cl /W3 /O2 /DTE_POW_FROM_RIGHT /DTE_NAT_LOG /Fe:smoke_pr.exe smoke.c tinyexpr.c || exit /b 1
+          smoke_pr.exe || exit /b 1
+
+  sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run smoke tests with ASan/UBSan
+        run: |
+          gcc -Wall -Wshadow -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -o smoke_san smoke.c tinyexpr.c -lm
+          ./smoke_san
+          gcc -Wall -Wshadow -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -DTE_POW_FROM_RIGHT -DTE_NAT_LOG -o smoke_san_pr smoke.c tinyexpr.c -lm
+          ./smoke_san_pr
