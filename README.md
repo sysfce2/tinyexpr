@@ -2,6 +2,8 @@
 
 # TinyExpr
 
+[![CI Status](https://github.com/codeplea/tinyexpr/actions/workflows/ci.yml/badge.svg)](https://github.com/codeplea/tinyexpr/actions/workflows/ci.yml)
+
 TinyExpr is a very small recursive descent parser and evaluation engine for
 math expressions. It's handy when you want to add the ability to evaluate
 math expressions at runtime without adding a bunch of cruft to your project.
