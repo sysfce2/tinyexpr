@@ -241,8 +241,10 @@ Here is some example performance numbers taken from the included
 TinyExpr parses the following grammar:
 
     <list>      =    <expr> {"," <expr>}
-    <expr>      =    <test> {("&&" | "||") <test>}
-    <test>      =    <sum> {(">" | ">=" | "<" | "<=" | "==" | "!=") <sum>}
+    <expr>      =    <and> {"||" <and>}
+    <and>       =    <eq> {"&&" <eq>}
+    <eq>        =    <rel> {("==" | "!=") <rel>}
+    <rel>       =    <sum> {(">" | ">=" | "<" | "<=") <sum>}
     <sum>       =    <term> {("+" | "-") <term>}
     <term>      =    <factor> {("*" | "/" | "%") <factor>}
     <factor>    =    <power> {"^" <power>}
@@ -271,12 +273,13 @@ precedence (the one exception being that exponentiation is evaluated
 left-to-right, but this can be changed - see below).
 
 The comparison operators (==, !=, <, <=, >, >=) and logical operators
-(&&, ||, !) are also supported, with C-style precedence: comparisons bind
-looser than arithmetic, and && and || bind loosest. They evaluate to 1 for
-true and 0 for false, and any non-zero operand is treated as true. Note
-that && and || do not short-circuit - both operands are always evaluated.
-Also note that comparisons chain left-to-right as in C, so *a < b < c*
-means *(a < b) < c*, not a range check.
+(&&, ||, !) are also supported, with the same precedence as C: relational
+operators bind looser than arithmetic, equality looser than relational,
+then &&, then || loosest. They evaluate to 1 for true and 0 for false, and
+any non-zero operand is treated as true. Note that && and || do not
+short-circuit - both operands are always evaluated. Also note that
+comparisons chain left-to-right as in C, so *a < b < c* means
+*(a < b) < c*, not a range check.
 
 The following C math functions are also supported:
 

@@ -316,6 +316,7 @@ static void next_token(state *s) {
                         if (s->next++[0] == '=') {
                             s->type = TOK_INFIX; s->function = equal;
                         } else {
+                            s->next--;
                             s->type = TOK_ERROR;
                         }
                         break;
@@ -339,6 +340,7 @@ static void next_token(state *s) {
                         if (s->next++[0] == '&') {
                             s->type = TOK_INFIX; s->function = logical_and;
                         } else {
+                            s->next--;
                             s->type = TOK_ERROR;
                         }
                         break;
@@ -346,6 +348,7 @@ static void next_token(state *s) {
                         if (s->next++[0] == '|') {
                             s->type = TOK_INFIX; s->function = logical_or;
                         } else {
+                            s->next--;
                             s->type = TOK_ERROR;
                         }
                         break;
@@ -639,7 +642,7 @@ static te_expr *term(state *s) {
 
 
 static te_expr *sum_expr(state *s) {
-    /* <expr>      =    <term> {("+" | "-") <term>} */
+    /* <sum_expr>  =    <term> {("+" | "-") <term>} */
     te_expr *ret = term(s);
     CHECK_NULL(ret);
 
@@ -660,13 +663,13 @@ static te_expr *sum_expr(state *s) {
 }
 
 
-static te_expr *test_expr(state *s) {
-    /* <expr>      =    <sum_expr> {(">" | ">=" | "<" | "<=" | "==" | "!=") <sum_expr>} */
+static te_expr *rel_expr(state *s) {
+    /* <rel_expr>  =    <sum_expr> {(">" | ">=" | "<" | "<=") <sum_expr>} */
     te_expr *ret = sum_expr(s);
     CHECK_NULL(ret);
 
     while (s->type == TOK_INFIX && (s->function == greater || s->function == greater_eq ||
-        s->function == lower || s->function == lower_eq || s->function == equal || s->function == not_equal)) {
+        s->function == lower || s->function == lower_eq)) {
         te_fun2 t = s->function;
         next_token(s);
         te_expr *e = sum_expr(s);
@@ -683,15 +686,15 @@ static te_expr *test_expr(state *s) {
 }
 
 
-static te_expr *expr(state *s) {
-    /* <expr>      =    <test_expr> {("&&" | "||") <test_expr>} */
-    te_expr *ret = test_expr(s);
+static te_expr *eq_expr(state *s) {
+    /* <eq_expr>   =    <rel_expr> {("==" | "!=") <rel_expr>} */
+    te_expr *ret = rel_expr(s);
     CHECK_NULL(ret);
 
-    while (s->type == TOK_INFIX && (s->function == logical_and || s->function == logical_or)) {
+    while (s->type == TOK_INFIX && (s->function == equal || s->function == not_equal)) {
         te_fun2 t = s->function;
         next_token(s);
-        te_expr *e = test_expr(s);
+        te_expr *e = rel_expr(s);
         CHECK_NULL(e, te_free(ret));
 
         te_expr *prev = ret;
@@ -699,6 +702,48 @@ static te_expr *expr(state *s) {
         CHECK_NULL(ret, te_free(e), te_free(prev));
 
         ret->function = t;
+    }
+
+    return ret;
+}
+
+
+static te_expr *and_expr(state *s) {
+    /* <and_expr>  =    <eq_expr> {"&&" <eq_expr>} */
+    te_expr *ret = eq_expr(s);
+    CHECK_NULL(ret);
+
+    while (s->type == TOK_INFIX && s->function == logical_and) {
+        next_token(s);
+        te_expr *e = eq_expr(s);
+        CHECK_NULL(e, te_free(ret));
+
+        te_expr *prev = ret;
+        ret = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, ret, e);
+        CHECK_NULL(ret, te_free(e), te_free(prev));
+
+        ret->function = logical_and;
+    }
+
+    return ret;
+}
+
+
+static te_expr *expr(state *s) {
+    /* <expr>      =    <and_expr> {"||" <and_expr>} */
+    te_expr *ret = and_expr(s);
+    CHECK_NULL(ret);
+
+    while (s->type == TOK_INFIX && s->function == logical_or) {
+        next_token(s);
+        te_expr *e = and_expr(s);
+        CHECK_NULL(e, te_free(ret));
+
+        te_expr *prev = ret;
+        ret = NEW_EXPR(TE_FUNCTION2 | TE_FLAG_PURE, ret, e);
+        CHECK_NULL(ret, te_free(e), te_free(prev));
+
+        ret->function = logical_or;
     }
 
     return ret;
