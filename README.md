@@ -3,6 +3,7 @@
 # TinyExpr
 
 [![CI](https://github.com/codeplea/tinyexpr/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/codeplea/tinyexpr/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/50113629.svg)](https://doi.org/10.5281/zenodo.21817114)
 
 TinyExpr is a very small recursive descent parser and evaluation engine for
 math expressions. It's handy when you want to add the ability to evaluate
